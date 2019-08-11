@@ -1,0 +1,96 @@
+<!-- chat/templates/chat/room.html -->
+{% extends 'home/base.html' %}
+{% load staticfiles %}
+{% block content %}
+    <script type="text/javascript" src="{% static 'js/jquery.min.js' %}"></script>
+	<script type="text/javascript" src="{% static 'js/popper.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/bootstrap.min.js' %}"></script>
+    <link rel="stylesheet" href='{% static "css/bootstrap.min.css" %}'/>
+    <link rel="shortcut icon" type="image/png" href="{% static 'favicon.png' %}"/>
+
+
+{#<style type="text/css">#}
+{#    textarea{#}
+{#    background: url("{% static 'tarea.png' %}");#}
+{#background-attachment: local;#}
+{#background-repeat: no-repeat;#}
+{#padding-left: 35px;#}
+{#padding-top: 10px;#}
+{#    border-color:#ccc;#}
+{#}#}
+{#</style>#}
+{% csrf_token %}
+    <div style="margin-top: 20px;" align="center">
+        {% if user.is_authenticated %}
+        <h3>Live Code Editor</h3>
+        <textarea id="chat-message-input" style="width: 98%; box-shadow: 0 0 8px 2px rgba(0, 0, 0, 0.2); padding: 10px 5px 5px 36px;" rows="20" class="form-control">{{ init_data }}</textarea><br/><br/>
+        <input id="chat-message-submit" type="button" class="btn btn-primary" value="Send"/>
+        <input id="chat-message-push-to-database" type="button" class="btn btn-primary" value="Push to Database"/>
+        {% endif %}
+    <br/><br/>
+        <h3>Live Code</h3>
+        <textarea id="chat-log" style="width: 98%; box-shadow: 0 0 8px 2px rgba(0, 0, 0, 0.2); padding: 10px 5px 5px 36px; background: #fff" rows="20"  class="form-control" readonly></textarea><br/>
+
+    </div>
+
+<script>
+    var roomName = {{ room_name_json }};
+
+    var chatSocket = new WebSocket(
+        'ws://' + window.location.host +
+        '/ws/chat/' + roomName + '/');
+
+    chatSocket.onmessage = function(e) {
+        var data = JSON.parse(e.data);
+        var message = data['message'];
+        document.querySelector('#chat-log').value = (message);// +=
+    };
+
+    chatSocket.onclose = function(e) {
+        console.error('Chat socket closed unexpectedly');
+    };
+
+    document.querySelector('#chat-message-input').focus();
+    {#document.querySelector('#chat-message-input').onkeyup = function(e) {#}
+    {#    if (e.keyCode === 13) {  // enter, return#}
+    {#        document.querySelector('#chat-message-submit').click();#}
+    {#    }#}
+    {# }; #}
+
+
+    // Live Streaming
+    document.querySelector('#chat-message-input').onkeyup = function(e) {
+        document.querySelector('#chat-message-submit').click();
+     };
+    document.querySelector('#chat-message-submit').onclick = function(e) {
+        var messageInputDom = document.querySelector('#chat-message-input');
+        var message = messageInputDom.value;
+        chatSocket.send(JSON.stringify({
+            'message': message
+        }));
+
+        //messageInputDom.value = '';
+    };
+
+    document.querySelector('#chat-message-push-to-database').onclick = function (e) {
+        var messageInputDom = document.querySelector('#chat-message-input').value;
+         var csrftoken = jQuery("[name=csrfmiddlewaretoken]").val();
+        // alert(messageInputDom);
+       $.ajax({
+                    url: '/database/',
+                    type: 'POST',
+                    data: {
+                        'csrfmiddlewaretoken': csrftoken,
+                        'data': messageInputDom,
+                        'room_name': roomName
+                    },
+                    error: function () {
+                        alert('Could not connect to server...');
+                    },
+                    success: function (response_ds) {
+                        alert(response_ds);
+                    }
+                });
+    }
+</script>
+{% endblock %}
